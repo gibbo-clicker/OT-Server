@@ -1,22 +1,22 @@
 import socket
 import threading
-import time
 
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+# server.bind(("195.133.48.113", 4444))
 server.bind(("195.133.48.113", 4444))
 server.listen()
 print("Server is listening")
 
-global queue
+global queue, games, ejected
 queue = []
 games = []
 
 
 def listen_user(user):
-    global queue
+    global queue, games, ejected
     print("Listening players...")
     data = user.recv(255)
     msg = data.decode('utf-8')
@@ -30,6 +30,7 @@ def listen_user(user):
     while True:
         if not((user, nick) in queue) and sum(list(map(lambda game: game[0][0] == user or game[1][0] == user, games))) == 0:
             queue.append((user, nick))
+            print('queue: ', len(queue))
 
         for i, u in enumerate(queue):
             try:
@@ -39,10 +40,11 @@ def listen_user(user):
 
         while len(queue) >= 2:
             try:
-                print('Открыта новая игра!')
+                print('Open new game!')
                 if queue[0][0] == queue[1][0]:
                     queue.pop(0)
                     continue
+
                 games.append([queue[0], queue[1], 0, 0])
                 queue[0][0].send(f'opponent connected :{queue[1][1]}:'.encode('utf-8'))
                 queue[1][0].send(f'opponent connected :{queue[0][1]}:'.encode('utf-8'))
@@ -56,10 +58,6 @@ def listen_user(user):
             return
 
         msg = data.decode('utf-8')
-        # if "disconnect" in msg:
-        #     print('queue:', len(queue))
-        #     queue.pop(queue.index((user, nick)))
-        #     print('queue:', len(queue))
 
         for i, (u1, u2, u1_kills, u2_kills) in enumerate(games):
             if u1[0] == user:
@@ -71,9 +69,9 @@ def listen_user(user):
                             u2[0].send(f'.WIN{games[i][3]}:{games[i][2]}WIN.'.encode('utf-8'))
                     u2[0].send(data)
                 except:
-                    print('opponent disconnected')
                     games.pop(i)
                     user.send('opponent disconnected'.encode('utf-8'))
+                    return
                 break
             elif u2[0] == user:
                 try:
@@ -84,9 +82,9 @@ def listen_user(user):
                             u2[0].send(f'.LOSE{games[i][3]}:{games[i][2]}LOSE.'.encode('utf-8'))
                     u1[0].send(data)
                 except:
-                    print('opponent disconnected')
                     games.pop(i)
                     user.send('opponent disconnected'.encode('utf-8'))
+                    return
                 break
 
 
